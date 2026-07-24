@@ -1,4 +1,4 @@
-name: Automation Victron vers SaaS Energysoft
+name: Automation Izypower vers SaaS Energysoft
 
 on:
   schedule:
