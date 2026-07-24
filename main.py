@@ -57,6 +57,9 @@ def calc_current(power, volt):
 # AUTHENTIFICATION & LECTURE CLOUD IZYPOWER TITAN 2400
 # ------------------------------------------------------------------
 def get_izypower_cloud_token():
+    if not IZYPOWER_USER or not IZYPOWER_PASS:
+        raise ValueError("Les variables IZYPOWER_USER et IZYPOWER_PASS doivent être définies dans les secrets GitHub.")
+
     pass_hash = hashlib.sha256(IZYPOWER_PASS.encode('utf-8')).hexdigest()
     
     url = f"{API_BASE_URL}/account/v1.0/token"
@@ -71,11 +74,6 @@ def get_izypower_cloud_token():
     data = res.json()
     
     if not data.get("success") and "access_token" not in data:
-        # Fallback authentification alternative
-        url_alt = "https://api.izypower.fr/v1/auth/login"
-        res_alt = requests.post(url_alt, json={"username": IZYPOWER_USER, "password": IZYPOWER_PASS}, timeout=15)
-        if res_alt.status_code == 200:
-            return res_alt.json().get("access_token"), "custom"
         raise Exception(f"Erreur d'authentification Izypower Cloud: {data}")
         
     return data.get("access_token"), "solarman"
