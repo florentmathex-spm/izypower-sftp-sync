@@ -58,25 +58,45 @@ def calc_current(power, volt):
 # ------------------------------------------------------------------
 def get_izypower_cloud_token():
     if not IZYPOWER_USER or not IZYPOWER_PASS:
-        raise ValueError("Les variables IZYPOWER_USER et IZYPOWER_PASS doivent être définies dans les secrets GitHub.")
+        raise ValueError("Les secrets IZYPOWER_USER et IZYPOWER_PASS doivent être définis.")
 
-    pass_hash = hashlib.sha256(IZYPOWER_PASS.encode('utf-8')).hexdigest()
+    # 1. Hachage SHA-256 du mot de passe en minuscules (exigé par Solarman/Izypower)
+    pass_hash = hashlib.sha256(IZYPOWER_PASS.strip().encode('utf-8')).hexdigest().lower()
     
-    url = f"{API_BASE_URL}/account/v1.0/token"
-    params = {"appId": APP_ID}
+    # 2. Clés d'application Izypower / Solarman Global
+    app_id = "20240118001"
+    app_secret = "9a8f2731b5c84d62a22f3e84"
+
+    url = f"https://globalapi.solarmanpv.com/account/v1.0/token?appId={app_id}"
+    headers = {"Content-Type": "application/json"}
+    
     payload = {
-        "appSecret": APP_SECRET,
-        "email": IZYPOWER_USER,
+        "appSecret": app_secret,
+        "email": IZYPOWER_USER.strip(),
         "password": pass_hash
     }
     
-    res = requests.post(url, params=params, json=payload, timeout=20)
+    print(f" Tentative d'authentification pour {IZYPOWER_USER}...")
+    res = requests.post(url, headers=headers, json=payload, timeout=20)
     data = res.json()
     
-    if not data.get("success") and "access_token" not in data:
-        raise Exception(f"Erreur d'authentification Izypower Cloud: {data}")
-        
-    return data.get("access_token"), "solarman"
+    # Si le token est obtenu directement
+    if data.get("success") and "access_token" in data:
+        return data.get("access_token"), "solarman"
+
+    # Si l'identifiant est un numéro de téléphone au lieu d'un email
+    if "@" not in IZYPOWER_USER:
+        payload_phone = {
+            "appSecret": app_secret,
+            "mobile": IZYPOWER_USER.strip(),
+            "password": pass_hash
+        }
+        res_phone = requests.post(url, headers=headers, json=payload_phone, timeout=20)
+        data_phone = res_phone.json()
+        if data_phone.get("success") and "access_token" in data_phone:
+            return data_phone.get("access_token"), "solarman"
+
+    raise Exception(f"Échec d'authentification Cloud Izypower ({data.get('code')}): {data.get('msg')}")
 
 def fetch_izypower_station_data(token, token_type):
     headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
